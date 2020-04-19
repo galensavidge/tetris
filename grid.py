@@ -1,4 +1,7 @@
+# grid.py
 
+# Static class that holds references to grid objects
+# Grid.init(w, h) must be called before grid objects can be intitialized
 class Grid:
 
     width = 0
@@ -27,6 +30,7 @@ class GridObject(object):
         self.y = ypos
         self.move(self.x, self.y)
 
+    # Moves the object to an empty location on the grid
     def move(self, xpos, ypos):
         if Grid.getObject(xpos, ypos) is None:
             Grid.setObject(self.x, self.y, None)

@@ -1,5 +1,8 @@
+#game.py
+
 import time
 
+# Static class that keeps track of all game objects and runs update and draw events
 class Game:
     
     # Lists of game objects
@@ -12,12 +15,14 @@ class Game:
     @staticmethod
     def step():
         for o in Game.objects:
+            # print("Up@prio: "+str(o.priority))
             o.update()
 
     # Draws all draw objects
     @staticmethod
     def draw():
         for o in Game.draw_objects:
+            # print("Draw@layer: "+str(o.layer))
             o.draw()
     
     # Runs the game
@@ -28,7 +33,8 @@ class Game:
             Game.step()
             Game.draw()
             time.sleep(max(Game.step_time - (time.time() - last_step), 0))
-            print("FPS: "+str(1.0/(time.time() - last_step)))
+            # print("FPS: "+str(1.0/(time.time() - last_step)))
+
 
 # GameObject(priority)
 class GameObject(object):
@@ -47,8 +53,8 @@ class GameObject(object):
         return self.priority
 
     def update(self):
-        # print("Up@prio: "+str(self.priority))
         return
+
 
 # GaphicsObject(layer, priority)
 class GraphicsObject(GameObject):
@@ -68,5 +74,4 @@ class GraphicsObject(GameObject):
         return self.layer
 
     def draw(self):
-        # print("Draw@layer: "+str(self.layer))
         return
