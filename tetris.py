@@ -6,38 +6,62 @@ import graphics as g
 from keyboard import is_pressed
 import random
 
-# Game constants
-block_priority = 0
-block_layer = 10
-base_layer = 0
 
-# Graphics setup
-grid_size = 50 # in px
-grid_x = 10
-grid_y = 20
-win = g.GraphWin("Tetris", grid_x*grid_size, grid_y*grid_size)
+class Tetris:
 
-# Key binds in the form name : key
-keybinds = {"up" : "W", "down" : "S", "left" : "A", "right" : "D", "cw" : "K", "ccw" : "J"}
+    # Game
+    block_priority = 0
+    block_layer = 10
+    base_layer = 0
+    gc = None
+
+    # Board
+    grid_x = 10
+    grid_y = 20
+    grid_size = 50 # in px
+    main_board = None
+
+    # Graphics
+    win = None
+    bg = None
+    
+    @staticmethod
+    def main():
+        Tetris.win = g.GraphWin("Tetris", Tetris.grid_x*Tetris.grid_size, Tetris.grid_y*Tetris.grid_size)
+        Tetris.main_board = Board(Tetris.grid_x, Tetris.grid_y, 0, 0, Tetris.grid_size)
+        Tetris.gc = GameController()
+        Tetris.bg = Background()
+        Game.run()
+
+
+# Grid board class
+class Board(Grid):
+
+    def __init__(self, width, height, origin_x, origin_y, grid_size):
+        Grid.__init__(self, width, height)
+        self.x = origin_x
+        self.y = origin_y
+        self.size = grid_size
+
 
 # Base block class
 class Block(GraphicsObject, GridObject):
 
-    def __init__(self, x, y):
-        GraphicsObject.__init__(self, block_layer, block_priority)
-        GridObject.__init__(self, x, y)
+    def __init__(self, board, x, y):
+        GraphicsObject.__init__(self, Tetris.block_layer, Tetris.block_priority)
+        GridObject.__init__(self, board, x, y)
         self.old_x = x
         self.old_y = y
-        self.r = g.Rectangle(g.Point(self.x*grid_size, self.y*grid_size), \
-                             g.Point((self.x+1)*grid_size, (self.y+1)*grid_size))
+        self.r = g.Rectangle(g.Point(self.x*Tetris.grid_size, self.y*Tetris.grid_size), \
+                             g.Point((self.x+1)*Tetris.grid_size, (self.y+1)*Tetris.grid_size))
         self.r.setFill("blue")
-        self.r.draw(win)
+        self.r.draw(Tetris.win)
 
     def update(self):
         return
 
     def draw(self):
-        self.r.move(grid_size*(self.x - self.old_x), grid_size*(self.y - self.old_y))
+        self.r.move(Tetris.grid_size*(self.x - self.old_x), Tetris.grid_size*(self.y - self.old_y))
         self.old_x = self.x
         self.old_y = self.y
 
@@ -94,9 +118,10 @@ class Tetromino(GameObject):
                 {0 : ((0, 0),(1, 0),(-2, 0),(1, -2),(-2, 1)), \
                  2 : ((0, 0),(-2, 0),(1, 0),(-2, -1),(1, 2))}}
     
-    def __init__(self, x, y, typ):
-        GameObject.__init__(self, block_priority)
-
+    def __init__(self, board, x, y, typ):
+        GameObject.__init__(self, Tetris.block_priority)
+        self.board = board
+        
         # Coordinates
         self.x = x
         self.y = y
@@ -111,18 +136,18 @@ class Tetromino(GameObject):
         self.layout = Tetromino.layouts[self.type]
         self.blocks = list()
         for coordinate in self.layout:
-            b = Block(x+coordinate[0], y+coordinate[1])
+            b = Block(board, x+coordinate[0], y+coordinate[1])
             b.setColor(Tetromino.colors[self.type])
             self.blocks.append(b)
 
     # Checks whether a block from this Tetromino would collide with anything at (x, y)
     def checkCollision(self, x, y):
         # Check that the coordinates are inside the grid
-        if Grid.checkBounds(x, y) == False:
+        if self.board.checkBounds(x, y) == False:
             return True
 
         # Check if there is an object at that space that isn't part of this Tetromino
-        o = Grid.getObject(x, y)
+        o = self.board.getObject(x, y)
         if o is not None and self.blocks.count(o) == 0:
             return True
         else:
@@ -201,17 +226,12 @@ class Tetromino(GameObject):
                 b = self.blocks[i]
                 l = self.layout[i]
                 
-
-                # print("BLOCK "+str(i))
-                # print("Layout: ("+str(c[0])+","+str(c[1])+")")
-                # print("Rot tuple: ("+str(r[0])+","+str(r[1])+")")
-                
                 # Calculate positions of blocks using a 2D rotation matrix
                 x = new_x + l[0]*r[0] - l[1]*r[1]
                 y = new_y + l[0]*r[1] + l[1]*r[0]
-                # print("Position: ("+str(x)+","+str(y)+")")
 
-                new_coords.append((x, y)) # Record new position of b
+                # Record new position of b
+                new_coords.append((x, y)) 
 
             # Check for collisions at this rotation
             if self.checkRotation(new_coords) == False:
@@ -235,15 +255,18 @@ class Tetromino(GameObject):
 
 class GameController(GameObject):
 
+    # Key binds in the form name : key
+    keybinds = {"up" : "W", "down" : "S", "left" : "A", "right" : "D", "cw" : "K", "ccw" : "J"}
+    
     def __init__(self):
-        GameObject.__init__(self, 1)
+        GameObject.__init__(self, 10)
 
         # Timer for automatic drop
         self.drop_timer = 0
         self.drop_timer_duration = 80
 
         # The tetromino controlled by the player
-        self.t = Tetromino(5, 5, "T")
+        self.t = Tetromino(Tetris.main_board, 5, 5, "T")
 
         self.last_key_state = dict()
     
@@ -252,8 +275,8 @@ class GameController(GameObject):
         # Get key presses
         key_state = dict()
         key_pressed = dict()
-        for key in keybinds.keys():
-            key_state[key] = is_pressed(keybinds[key])
+        for key in GameController.keybinds.keys():
+            key_state[key] = is_pressed(GameController.keybinds[key])
             if key_state[key] == True and self.last_key_state.get(key, True) == False:
                 key_pressed[key] = True
             else:
@@ -278,7 +301,7 @@ class GameController(GameObject):
         # Slowly drop and place controlled tetromino
         self.drop_timer += 1
 
-        for key in keybinds:
+        for key in GameController.keybinds:
             if key_pressed[key]:
                 self.drop_timer = 0
         
@@ -290,19 +313,17 @@ class GameController(GameObject):
                 self.placeTetromino()
 
     def placeTetromino(self):
-        self.t = Tetromino(5, 2, random.choice(list(Tetromino.layouts.keys())))
+        self.t = Tetromino(Tetris.main_board, 5, 2, random.choice(list(Tetromino.layouts.keys())))
+
 
 class Background(GraphicsObject):
 
     color = "white"
 
     def __init__(self):
-        GraphicsObject.__init__(self, base_layer, 0)
-        self.r = g.Rectangle(g.Point(0, 0), g.Point(grid_x*grid_size, grid_y*grid_size))
+        GraphicsObject.__init__(self, Tetris.base_layer, 0)
+        self.r = g.Rectangle(g.Point(0, 0), g.Point(Tetris.grid_x*Tetris.grid_size, Tetris.grid_y*Tetris.grid_size))
         self.r.setFill(Background.color)
-        
-        
-Grid.init(grid_x, grid_y)
-gc = GameController()
-bg = Background()
-Game.run()
+
+
+Tetris.main()
