@@ -4,12 +4,14 @@ from game import *
 from grid import *
 import graphics as g
 from keyboard import is_pressed
+import random
 
+# Game constants
 block_priority = 0
 block_layer = 10
 base_layer = 0
 
-# Graphics init
+# Graphics setup
 grid_size = 50 # in px
 grid_x = 10
 grid_y = 20
@@ -235,8 +237,12 @@ class GameController(GameObject):
 
     def __init__(self):
         GameObject.__init__(self, 1)
-        self.counter = 0
 
+        # Timer for automatic drop
+        self.drop_timer = 0
+        self.drop_timer_duration = 80
+
+        # The tetromino controlled by the player
         self.t = Tetromino(5, 5, "T")
 
         self.last_key_state = dict()
@@ -254,9 +260,10 @@ class GameController(GameObject):
                 key_pressed[key] = False
             self.last_key_state[key] = key_state[key]
 
+        # Act based on key presses
         if key_pressed["up"]:
             self.t.drop()
-            self.t = Tetromino(5, 2, "J")
+            self.placeTetromino()
         elif key_pressed["down"]:
             self.t.move(0, 1)
         elif key_pressed["right"]:
@@ -267,7 +274,23 @@ class GameController(GameObject):
             self.t.rotate(True) # Rotate clockwise
         elif key_pressed["ccw"]:
             self.t.rotate(False) # Rotate ccw
-    
+        
+        # Slowly drop and place controlled tetromino
+        self.drop_timer += 1
+
+        for key in keybinds:
+            if key_pressed[key]:
+                self.drop_timer = 0
+        
+        if self.drop_timer >= self.drop_timer_duration:
+            self.drop_timer = 0
+            if self.t.checkTranslation(0, 1) == False:
+                self.t.move(0, 1)
+            else:
+                self.placeTetromino()
+
+    def placeTetromino(self):
+        self.t = Tetromino(5, 2, random.choice(list(Tetromino.layouts.keys())))
 
 class Background(GraphicsObject):
 
@@ -282,5 +305,4 @@ class Background(GraphicsObject):
 Grid.init(grid_x, grid_y)
 gc = GameController()
 bg = Background()
-b2 = Block(6, 12)
 Game.run()
