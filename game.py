@@ -55,6 +55,8 @@ class GameObject(object):
     def update(self):
         return
 
+    def delete(self):
+        Game.objects.remove(self)
 
 # GaphicsObject(layer, priority)
 class GraphicsObject(GameObject):
@@ -75,3 +77,7 @@ class GraphicsObject(GameObject):
 
     def draw(self):
         return
+
+    def delete(self):
+        GameObject.delete(self)
+        Game.draw_objects.remove(self)

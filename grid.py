@@ -22,6 +22,10 @@ class Grid:
     def getObject(x, y):
         return Grid.objects[y][x]
 
+    @staticmethod
+    def checkBounds(x, y):
+        return x >= 0 and x < Grid.width and y >= 0 and y < Grid.height
+
 # GridObject(x, y)
 class GridObject(object):
 
@@ -30,13 +34,13 @@ class GridObject(object):
         self.y = ypos
         self.move(self.x, self.y)
 
-    # Moves the object to an empty location on the grid
+    # Moves the object to another location on the grid
     def move(self, xpos, ypos):
-        if Grid.getObject(xpos, ypos) is None:
+        if Grid.getObject(self.x, self.y) == self:
             Grid.setObject(self.x, self.y, None)
-            Grid.setObject(xpos, ypos, self)
-            self.x = xpos
-            self.y = ypos
+        Grid.setObject(xpos, ypos, self)
+        self.x = xpos
+        self.y = ypos
 
 # Test code
 if __name__ == "__main__":
