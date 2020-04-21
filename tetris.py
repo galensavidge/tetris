@@ -21,12 +21,19 @@ class Tetris:
     grid_size = 50 # in px
     board_position_x = 200
     board_position_y = -50
+    spawn_x = 5
+    spawn_y = 3
     main_board = None
 
     # GUI board
     gui_grid_x = 36
     gui_grid_y = 40
     gui_grid_size = 25
+    saved_x = 3
+    saved_y = 3
+    queue_x = 32
+    queue_y = 3
+    queue_spacing = 6
     gui_board = None
     
     # Graphics
@@ -273,7 +280,7 @@ class Tetromino(GameObject):
             new_x = self.x + k[0]
             new_y = self.y - k[1] # Y coordinate is inverted in kick data
             
-            # I and O do not rotate around the "center" of the Tetronimo so they need an extra translation
+            # I and O do not rotate around the "center" so they need an extra translation
             if self.type == "I" or self.type == "O":
                 if clockwise:
                     new_x += r[1]
@@ -361,6 +368,9 @@ class GameController(GameObject):
                 key_pressed[key] = False
             self.last_key_state[key] = key_state[key]
 
+        if key_pressed["save"]:
+            self.saveTetromino()
+        
         # Act based on key presses
         if key_pressed["up"]:
             self.t.drop()
@@ -371,7 +381,8 @@ class GameController(GameObject):
             self.t.move(1, 0)
         elif key_pressed["left"]:
             self.t.move(-1, 0)
-        elif key_pressed["cw"]:
+        
+        if key_pressed["cw"]:
             self.t.rotate(True) # Rotate clockwise
         elif key_pressed["ccw"]:
             self.t.rotate(False) # Rotate ccw
@@ -403,18 +414,31 @@ class GameController(GameObject):
             random.shuffle(self.next_batch)
 
         new_type = self.next_batch.pop(0)
-
         
-        self.next.append(Tetromino(Tetris.gui_board, 32, 3 + len(self.next)*6, new_type))
+        self.next.append(Tetromino(Tetris.gui_board, Tetris.queue_x, \
+                                   Tetris.queue_y + len(self.next)*Tetris.queue_spacing, new_type))
 
     def popTetromino(self):
         self.t = self.next.pop(0)
-        self.t.spawnOnBoard(Tetris.main_board, 5, 3)
+        self.t.spawnOnBoard(Tetris.main_board, Tetris.spawn_x, Tetris.spawn_y)
 
         for t in self.next:
-            t.move(0, -6)
+            t.move(0, -1*Tetris.queue_spacing)
         self.enqueueTetromino()
-        
+
+    def saveTetromino(self):
+        if self.t is not None:
+            if self.saved is None:
+                self.saved = self.t
+                self.popTetromino()
+            else:
+                t = self.t
+                self.t = self.saved
+                self.saved = t
+                self.t.spawnOnBoard(Tetris.main_board, Tetris.spawn_x, Tetris.spawn_y)
+
+            self.saved.spawnOnBoard(Tetris.gui_board, Tetris.saved_x, Tetris.saved_y)
+    
     def placeTetromino(self):
         # Check for filled rodawws
         filled_rows = 0
