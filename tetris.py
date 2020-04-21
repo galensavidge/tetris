@@ -10,9 +10,9 @@ import random
 class Tetris:
 
     # Game
-    block_priority = 0
-    block_layer = 10
     base_layer = 0
+    block_priority = 0
+    block_layer = 1
     gc = None
 
     # Main board
@@ -25,7 +25,10 @@ class Tetris:
     spawn_y = 1
     main_board = None
 
-    # GUI board
+    # GUI
+    gui_layer = 2
+    gui_priority = 0
+    gui = None
     gui_grid_x = 36
     gui_grid_y = 42
     gui_grid_size = 25
@@ -49,6 +52,7 @@ class Tetris:
         Tetris.main_board = Board(Tetris.grid_x, Tetris.grid_y, \
                                   Tetris.board_position_x, Tetris.board_position_y, \
                                   Tetris.grid_size)
+        Tetris.gui = GUI()
         Tetris.gui_board = Board(Tetris.gui_grid_x, Tetris.gui_grid_y, 0, 0, Tetris.gui_grid_size)
         Tetris.gc = GameController()
         Game.run()
@@ -499,7 +503,8 @@ class GameController(GameObject):
         # Check if the game is over
         for b in self.t.blocks:
             if b.y <= Tetris.spawn_y:
-                self.endGame()
+                Tetris.gui.setGameOver(True)
+                self.state = "game_over"
         
         # Check for filled rows
         filled_rows = 0
@@ -522,14 +527,38 @@ class GameController(GameObject):
         # Take a Tetromino from the queue
         self.popTetromino()
 
-    def endGame(self):
-        t = g.Text(g.Point(Tetris.window_width/2, Tetris.window_height/2), "GAME OVER")
-        t.draw(Tetris.win)
-        t.setStyle("bold")
-        t.setSize(36)
-        t.setFill("red")
-        self.state = "game_over"
-    
+class GUI(GraphicsObject):
+
+    hold_color = "#5c5c5c"
+    game_over_color = "red"
+
+    def __init__(self):
+        GraphicsObject.__init__(self, Tetris.gui_layer, Tetris.gui_priority)
+
+        # Hold text
+        self.hold_t = g.Text(g.Point(Tetris.gui_grid_size*3.5, Tetris.gui_grid_size*6.5), "Hold")
+        self.hold_t.setStyle("bold")
+        self.hold_t.setSize(18)
+        self.hold_t.setFill(GUI.hold_color)
+        self.hold_t.draw(Tetris.win)
+        
+        # Game over text
+        self.game_over_t = g.Text(g.Point(Tetris.window_width/2, Tetris.window_height/2), \
+                                  "GAME OVER")
+        self.game_over_t.setStyle("bold")
+        self.game_over_t.setSize(36)
+        self.game_over_t.setFill(GUI.game_over_color)
+        self.game_over_drawn = False
+
+    def setGameOver(self, on):
+        if on and self.game_over_drawn == False:
+            self.game_over_drawn = True
+            self.game_over_t.draw(Tetris.win)
+        elif not on and self.game_over_drawn == True:
+            self.game_over_drawn = False
+            self.game_over_t.undraw(Tetris.win)
+            
+   
 class Background(GraphicsObject):
 
     color = "white"
