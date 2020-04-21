@@ -1,4 +1,4 @@
-#tetris.py
+# tetris.py
 
 from game import *
 from grid import *
@@ -112,7 +112,7 @@ class Block(GraphicsObject, GridObject):
             self.old_y = self.y
 
     def changeBoard(self, board, x, y):
-        # Change boards
+        # Change board references
         if self.grid.getObject(self.x, self.y) == self:
             self.grid.setObject(self.x, self.y, None)
         self.grid = board
@@ -339,13 +339,19 @@ class GameController(GameObject):
     # Key binds in the form name : key
     keybinds = {"up" : "W", "down" : "S", "left" : "A", "right" : "D", "cw" : "K", "ccw" : "J", \
                 "save" : "L", "quit" : "esc"}
-
+    
     # Number of tetrominos to queue on screen
     next_length = 6
     
     def __init__(self):
         GameObject.__init__(self, 10)
 
+        # Game state
+        self.state = "playing"
+        
+        # General game timer
+        self.timer = 0
+        
         # Timer for automatic drop
         self.drop_timer = 0
         self.drop_timer_duration = 80
@@ -363,8 +369,11 @@ class GameController(GameObject):
 
         # Longer queue of tetromino types
         self.next_batch = list()
-        
+
+        # Dictionaries to hold keyboard inputs
+        self.key_state = dict()
         self.last_key_state = dict()
+        self.key_pressed = dict()
 
         # Set up tetromino queue and pop first tetromino
         while len(self.next) < GameController.next_length:
@@ -372,64 +381,70 @@ class GameController(GameObject):
         self.popTetromino()
     
     def update(self):
-
+        # Update game timer
+        self.timer += 1
+        
         # Get key presses
-        key_state = dict()
-        key_pressed = dict()
-        for key in GameController.keybinds.keys():
-            key_state[key] = is_pressed(GameController.keybinds[key])
-            if key_state[key] == True and self.last_key_state.get(key, True) == False:
-                key_pressed[key] = True
-            else:
-                key_pressed[key] = False
-            self.last_key_state[key] = key_state[key]
+        self.getKeys()
 
         # Quit the game
-        if key_pressed["quit"]:
+        if self.key_pressed["quit"]:
             exit()
         
-        # Saving
-        if key_pressed["save"] and self.can_save:
-            self.saveTetromino()
-        
-        # Translation
-        if key_pressed["up"]:
-            self.t.drop()
-            self.placeTetromino()
-        elif key_pressed["down"]:
-            self.t.move(0, 1)
-        elif key_pressed["right"]:
-            self.t.move(1, 0)
-        elif key_pressed["left"]:
-            self.t.move(-1, 0)
-
-        # Rotation
-        if key_pressed["cw"]:
-            if self.t.rotate(True): # Rotate clockwise
-                self.place_timer = 0
-        elif key_pressed["ccw"]:
-            if self.t.rotate(False): # Rotate ccw
-                self.place_timer = 0
-        
-        # Slowly drop controlled tetromino
-        self.drop_timer += 1
-        
-        if self.drop_timer >= self.drop_timer_duration:
-            self.drop_timer = 0
-            self.t.move(0, 1)
-
-        # Automatically place controlled tetromino
-        if self.t.checkTranslation(0, 1) == True:
-            self.place_timer += 1
-
-            if self.place_timer >= self.place_timer_duration:
-                self.place_timer = 0
+        if self.state == "playing":
+            # Saving
+            if self.key_pressed["save"] and self.can_save:
+                self.saveTetromino()
+            
+            # Translation
+            if self.key_pressed["up"]:
+                self.t.drop()
                 self.placeTetromino()
+            elif self.key_pressed["down"]:
+                self.t.move(0, 1)
+            elif self.key_pressed["right"]:
+                self.t.move(1, 0)
+            elif self.key_pressed["left"]:
+                self.t.move(-1, 0)
 
-        else:
-            self.place_timer = 0
+            # Rotation
+            if self.key_pressed["cw"]:
+                if self.t.rotate(True): # Rotate clockwise
+                    self.place_timer = 0
+            elif self.key_pressed["ccw"]:
+                if self.t.rotate(False): # Rotate ccw
+                    self.place_timer = 0
+            
+            # Slowly drop controlled tetromino
+            self.drop_timer += 1
+            
+            if self.drop_timer >= self.drop_timer_duration:
+                self.drop_timer = 0
+                self.t.move(0, 1)
 
-        
+            # Automatically place controlled tetromino
+            if self.t.checkTranslation(0, 1) == True:
+                self.place_timer += 1
+
+                if self.place_timer >= self.place_timer_duration:
+                    self.place_timer = 0
+                    self.placeTetromino()
+
+            else:
+                self.place_timer = 0
+
+        elif self.state == "game_over":
+            pass
+            
+    def getKeys(self):
+        for key in GameController.keybinds.keys():
+            self.key_state[key] = is_pressed(GameController.keybinds[key])
+            if self.key_state[key] == True and self.last_key_state.get(key, True) == False:
+                self.key_pressed[key] = True
+            else:
+                self.key_pressed[key] = False
+            self.last_key_state[key] = self.key_state[key]
+    
     def enqueueTetromino(self):
         # Check if there are any tetrominos left in the last batch
         if len(self.next_batch) == 0:
@@ -503,9 +518,6 @@ class GameController(GameObject):
                         o = Tetris.main_board.getObject(x, j)
                         if o is not None:
                             Tetris.main_board.getObject(x, j).move(o.x, o.y + 1)
-
-        # Check if the game is over
-        # if Tetris.main_board.rowFilled(
         
         # Take a Tetromino from the queue
         self.popTetromino()
@@ -516,9 +528,7 @@ class GameController(GameObject):
         t.setStyle("bold")
         t.setSize(36)
         t.setFill("red")
-        while not is_pressed(GameController.keybinds["quit"]):
-            pass
-        exit()
+        self.state = "game_over"
     
 class Background(GraphicsObject):
 
@@ -551,7 +561,10 @@ class Background(GraphicsObject):
                                Tetris.board_position_y + Tetris.grid_size*i))
             l.setOutline(Background.line_color)
             l.draw(Tetris.win)
-            
-            
+
+    def draw(self):
+        # Drawing this every frame prevents the window from not responding
+        self.r.setFill(Background.color)
+
 
 Tetris.main()
