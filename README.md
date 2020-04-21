@@ -17,3 +17,4 @@ This is needed to read key presses.
 | Rotate CW		| K			|
 | Rotate CCW	| J			|
 | Hold piece	| L			|
+| Quit			| Esc		|
