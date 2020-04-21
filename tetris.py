@@ -15,17 +15,23 @@ class Tetris:
     base_layer = 0
     gc = None
 
-    # Board
+    # Main board
     grid_x = 10
     grid_y = 20
     grid_size = 50 # in px
     board_position_x = 200
-    board_position_y = 50
+    board_position_y = -50
     main_board = None
 
+    # GUI board
+    gui_grid_x = 36
+    gui_grid_y = 40
+    gui_grid_size = 25
+    gui_board = None
+    
     # Graphics
-    window_width = board_position_x + grid_x*grid_size
-    window_height = board_position_y + grid_y*grid_size
+    window_width = gui_grid_x*gui_grid_size
+    window_height = gui_grid_y*gui_grid_size
     win = None
     bg = None
     
@@ -36,6 +42,7 @@ class Tetris:
         Tetris.main_board = Board(Tetris.grid_x, Tetris.grid_y, \
                                   Tetris.board_position_x, Tetris.board_position_y, \
                                   Tetris.grid_size)
+        Tetris.gui_board = Board(Tetris.gui_grid_x, Tetris.gui_grid_y, 0, 0, Tetris.gui_grid_size)
         Tetris.gc = GameController()
         Game.run()
 
@@ -49,6 +56,17 @@ class Board(Grid):
         self.y = origin_y
         self.size = grid_size
 
+    def printBoard(self):
+        for i in range(self.height):
+            for j in range(self.width):
+                o = self.getObject(j, i)
+                if o is not None:
+                    print("~",end="")
+                else:
+                    print(" ",end="")
+            print("")
+        print("----------")
+
 
 # Base block class
 class Block(GraphicsObject, GridObject):
@@ -58,28 +76,52 @@ class Block(GraphicsObject, GridObject):
         GridObject.__init__(self, board, x, y)
         self.old_x = x
         self.old_y = y
-        self.r = g.Rectangle(g.Point(self.x*Tetris.grid_size + Tetris.board_position_x, \
-                                     self.y*Tetris.grid_size + Tetris.board_position_y), \
-                             g.Point((self.x+1)*Tetris.grid_size + Tetris.board_position_x, \
-                                     (self.y+1)*Tetris.grid_size + Tetris.board_position_y))
-        self.r.setFill("blue")
-        self.r.draw(Tetris.win)
+        self.color = "blue" # Default color
+        self.drawRectangle()
 
     def update(self):
         return
 
+    def drawRectangle(self):
+        self.r = g.Rectangle(g.Point(self.x*self.grid.size + self.grid.x, \
+                                     self.y*self.grid.size + self.grid.y), \
+                             g.Point((self.x+1)*self.grid.size + self.grid.x, \
+                                     (self.y+1)*self.grid.size + self.grid.y))
+        self.r.draw(Tetris.win)
+        self.r.setFill(self.color)
+    
     def draw(self):
-        self.r.move(Tetris.grid_size*(self.x - self.old_x), Tetris.grid_size*(self.y - self.old_y))
+        if self.x != self.old_x or self.y != self.old_y:
+            self.r.move(self.grid.size*(self.x - self.old_x), self.grid.size*(self.y - self.old_y))
+            self.old_x = self.x
+            self.old_y = self.y
+
+    def changeBoard(self, board, x, y):
+        # Change boards
+        if self.grid.getObject(self.x, self.y) == self:
+            self.grid.setObject(self.x, self.y, None)
+        self.grid = board
+        self.grid.setObject(x, y, self)
+
+        # Reset position
+        self.x = x
+        self.y = y
         self.old_x = self.x
         self.old_y = self.y
 
+        # Draw new rectangle
+        self.r.undraw()
+        self.drawRectangle()
+        
     def setColor(self, color):
+        self.color = color
         self.r.setFill(color)
     
     def delete(self):
         GraphicsObject.delete(self)
         GridObject.delete(self)
         self.r.undraw()
+        del self.r
 
 
 class Tetromino(GameObject):
@@ -149,6 +191,18 @@ class Tetromino(GameObject):
             b.setColor(Tetromino.colors[self.type])
             self.blocks.append(b)
 
+    # Moves the Tetromino to board at position (x, y)
+    def spawnOnBoard(self, board, x, y):
+        self.board = board
+        self.x = x
+        self.y = y
+        self.rot = 0
+        
+        for i in range(len(self.blocks)):
+            b = self.blocks[i]
+            coordinate = self.layout[i]
+            b.changeBoard(board, x+coordinate[0], y+coordinate[1])
+    
     # Checks whether a block from this Tetromino would collide with anything at (x, y)
     def checkCollision(self, x, y):
         # Check that the coordinates are inside the grid
@@ -267,6 +321,9 @@ class GameController(GameObject):
     # Key binds in the form name : key
     keybinds = {"up" : "W", "down" : "S", "left" : "A", "right" : "D", "cw" : "K", "ccw" : "J", \
                 "save" : "L"}
+
+    # Number of tetrominos to queue on screen
+    next_length = 6
     
     def __init__(self):
         GameObject.__init__(self, 10)
@@ -275,10 +332,21 @@ class GameController(GameObject):
         self.drop_timer = 0
         self.drop_timer_duration = 80
 
-        # The tetromino controlled by the player
-        self.t = Tetromino(Tetris.main_board, 5, 5, "T")
+        # The tetromino saved using the save key
+        self.saved = None
 
+        # Queue of tetrominos
+        self.next = list()
+
+        # Longer queue of tetromino types
+        self.next_batch = list()
+        
         self.last_key_state = dict()
+
+        # Set up tetromino queue and pop first tetromino
+        while len(self.next) < GameController.next_length:
+            self.enqueueTetromino()
+        self.popTetromino()
     
     def update(self):
 
@@ -322,6 +390,31 @@ class GameController(GameObject):
             else:
                 self.placeTetromino()
 
+    def enqueueTetromino(self):
+        # Check if there are any tetrominos left in the last batch
+        if len(self.next_batch) == 0:
+            # Make a new batch of tetrominos countaing 2x of each type
+            types = list(Tetromino.layouts.keys())
+            
+            for t in types:
+                self.next_batch.append(t)
+                self.next_batch.append(t)
+
+            random.shuffle(self.next_batch)
+
+        new_type = self.next_batch.pop(0)
+
+        
+        self.next.append(Tetromino(Tetris.gui_board, 32, 3 + len(self.next)*6, new_type))
+
+    def popTetromino(self):
+        self.t = self.next.pop(0)
+        self.t.spawnOnBoard(Tetris.main_board, 5, 3)
+
+        for t in self.next:
+            t.move(0, -6)
+        self.enqueueTetromino()
+        
     def placeTetromino(self):
         # Check for filled rodawws
         filled_rows = 0
@@ -345,11 +438,9 @@ class GameController(GameObject):
                         o = Tetris.main_board.getObject(x, j)
                         if o is not None:
                             Tetris.main_board.getObject(x, j).move(o.x, o.y + 1)
-        if filled_rows != 0:
-            print("Filled "+str(filled_rows)+" rows!")
         
-        # Make a new Tetromino
-        self.t = Tetromino(Tetris.main_board, 5, 2, random.choice(list(Tetromino.layouts.keys())))
+        # Take a Tetromino from the queue
+        self.popTetromino()
 
 
 class Background(GraphicsObject):
