@@ -1,3 +1,4 @@
+# Python Tetris
 I'm making Tetris from scratch in Python just for fun! Code is all by me with the exception of graphics.py.
 
 ## Setup
