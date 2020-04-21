@@ -35,6 +35,10 @@ class GridObject(object):
         self.x = xpos
         self.y = ypos
 
+    def delete(self):
+        if self.grid.getObject(self.x, self.y) == self:
+            self.grid.setObject(self.x, self.y, None)
+
 # Test code
 if __name__ == "__main__":
     g = Grid(3, 2)

@@ -19,18 +19,24 @@ class Tetris:
     grid_x = 10
     grid_y = 20
     grid_size = 50 # in px
+    board_position_x = 200
+    board_position_y = 50
     main_board = None
 
     # Graphics
+    window_width = board_position_x + grid_x*grid_size
+    window_height = board_position_y + grid_y*grid_size
     win = None
     bg = None
     
     @staticmethod
     def main():
-        Tetris.win = g.GraphWin("Tetris", Tetris.grid_x*Tetris.grid_size, Tetris.grid_y*Tetris.grid_size)
-        Tetris.main_board = Board(Tetris.grid_x, Tetris.grid_y, 0, 0, Tetris.grid_size)
-        Tetris.gc = GameController()
+        Tetris.win = g.GraphWin("Tetris", Tetris.window_width, Tetris.window_height)
         Tetris.bg = Background()
+        Tetris.main_board = Board(Tetris.grid_x, Tetris.grid_y, \
+                                  Tetris.board_position_x, Tetris.board_position_y, \
+                                  Tetris.grid_size)
+        Tetris.gc = GameController()
         Game.run()
 
 
@@ -52,8 +58,10 @@ class Block(GraphicsObject, GridObject):
         GridObject.__init__(self, board, x, y)
         self.old_x = x
         self.old_y = y
-        self.r = g.Rectangle(g.Point(self.x*Tetris.grid_size, self.y*Tetris.grid_size), \
-                             g.Point((self.x+1)*Tetris.grid_size, (self.y+1)*Tetris.grid_size))
+        self.r = g.Rectangle(g.Point(self.x*Tetris.grid_size + Tetris.board_position_x, \
+                                     self.y*Tetris.grid_size + Tetris.board_position_y), \
+                             g.Point((self.x+1)*Tetris.grid_size + Tetris.board_position_x, \
+                                     (self.y+1)*Tetris.grid_size + Tetris.board_position_y))
         self.r.setFill("blue")
         self.r.draw(Tetris.win)
 
@@ -70,6 +78,7 @@ class Block(GraphicsObject, GridObject):
     
     def delete(self):
         GraphicsObject.delete(self)
+        GridObject.delete(self)
         self.r.undraw()
 
 
@@ -256,7 +265,8 @@ class Tetromino(GameObject):
 class GameController(GameObject):
 
     # Key binds in the form name : key
-    keybinds = {"up" : "W", "down" : "S", "left" : "A", "right" : "D", "cw" : "K", "ccw" : "J"}
+    keybinds = {"up" : "W", "down" : "S", "left" : "A", "right" : "D", "cw" : "K", "ccw" : "J", \
+                "save" : "L"}
     
     def __init__(self):
         GameObject.__init__(self, 10)
@@ -313,17 +323,67 @@ class GameController(GameObject):
                 self.placeTetromino()
 
     def placeTetromino(self):
+        # Check for filled rodawws
+        filled_rows = 0
+        
+        for y in range(Tetris.grid_y):
+            filled = True
+            for x in range(Tetris.grid_x):
+                if Tetris.main_board.getObject(x, y) is None:
+                    filled = False
+
+            if filled:
+                filled_rows += 1
+                
+                # Delete objects in this row
+                for x in range(Tetris.grid_x):
+                    Tetris.main_board.getObject(x, y).delete()
+
+                # Move blocks above this down by one space
+                for j in range(y, -1, -1):
+                    for x in range(Tetris.grid_x):
+                        o = Tetris.main_board.getObject(x, j)
+                        if o is not None:
+                            Tetris.main_board.getObject(x, j).move(o.x, o.y + 1)
+        if filled_rows != 0:
+            print("Filled "+str(filled_rows)+" rows!")
+        
+        # Make a new Tetromino
         self.t = Tetromino(Tetris.main_board, 5, 2, random.choice(list(Tetromino.layouts.keys())))
 
 
 class Background(GraphicsObject):
 
     color = "white"
+    line_color = "grey"
 
     def __init__(self):
         GraphicsObject.__init__(self, Tetris.base_layer, 0)
-        self.r = g.Rectangle(g.Point(0, 0), g.Point(Tetris.grid_x*Tetris.grid_size, Tetris.grid_y*Tetris.grid_size))
-        self.r.setFill(Background.color)
 
+        # Draw background color
+        self.r = g.Rectangle(g.Point(Tetris.board_position_x, Tetris.board_position_y), \
+                             g.Point(Tetris.board_position_x + Tetris.grid_x*Tetris.grid_size, \
+                                     Tetris.board_position_y + Tetris.grid_y*Tetris.grid_size))
+        self.r.setFill(Background.color)
+        self.r.draw(Tetris.win)
+
+        # Draw grid
+        for i in range(1, Tetris.grid_x):
+            l = g.Line(g.Point(Tetris.board_position_x + Tetris.grid_size*i, \
+                               Tetris.board_position_y), \
+                       g.Point(Tetris.board_position_x + Tetris.grid_size*i, \
+                               Tetris.board_position_y + Tetris.grid_y*Tetris.grid_size))
+            l.setOutline(Background.line_color)
+            l.draw(Tetris.win)
+
+        for i in range(1, Tetris.grid_y):
+            l = g.Line(g.Point(Tetris.board_position_x, \
+                               Tetris.board_position_y+ Tetris.grid_size*i), \
+                       g.Point(Tetris.board_position_x + Tetris.grid_x*Tetris.grid_size, \
+                               Tetris.board_position_y + Tetris.grid_size*i))
+            l.setOutline(Background.line_color)
+            l.draw(Tetris.win)
+            
+            
 
 Tetris.main()
