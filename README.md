@@ -6,7 +6,7 @@ Install the keyboard module using the command:
 ```
 $ pip install keyboard
 ```
-This is needed to read key presses.
+Then run tetris.py to play the game.
 
 ## Controls
 | Function		| Key		|
