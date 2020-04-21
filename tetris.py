@@ -348,6 +348,9 @@ class GameController(GameObject):
     
     # Number of tetrominos to queue on screen
     next_length = 6
+
+    # How often to bump up difficulty
+    difficulty_level_time = 5*Game.framerate
     
     def __init__(self):
         GameObject.__init__(self, 10)
@@ -360,11 +363,15 @@ class GameController(GameObject):
         
         # Timer for automatic drop
         self.drop_timer = 0
-        self.drop_timer_duration = 80
+        self.drop_timer_duration = 48
 
         # Timer for placement
         self.place_timer = 0
-        self.place_timer_duration = 60
+        self.place_timer_duration = 39
+
+        # Timer to prevent double dropping
+        self.spawn_timer = 0
+        self.spawn_timer_duration = Game.framerate/4
 
         # The tetromino saved using the save key
         self.saved = None
@@ -395,9 +402,22 @@ class GameController(GameObject):
             exit()
         
         if self.state == "playing":
-            # Update game timer
+            # Update game timer and spawn timer
             self.timer += 1
             Tetris.gui.setTimer(self.timer//Game.framerate)
+
+            self.spawn_timer += 1
+
+            # Increase difficulty
+            if self.timer%GameController.difficulty_level_time == 0:
+                print("Increasing difficulty...")
+
+                if self.drop_timer_duration > 8:
+                    self.drop_timer_duration -= 5
+                elif self.drop_timer_duration > 1:
+                    self.drop_timer_duration -= 1
+
+                self.place_timer_duration = self.drop_timer_duration/2 + Game.framerate/4
             
             # Saving
             if self.key_pressed["save"] and self.can_save:
@@ -405,12 +425,15 @@ class GameController(GameObject):
             
             # Translation
             if self.key_pressed["up"]:
-                self.t.drop()
-                self.placeTetromino()
+                if self.spawn_timer >= self.spawn_timer_duration:
+                    self.t.drop()
+                    self.placeTetromino()
             elif self.key_pressed["down"]:
-                self.t.move(0, 1)
+                if self.t.move(0, 1):
+                    self.place_timer = 0
             elif self.key_pressed["right"]:
-                self.t.move(1, 0)
+                if self.t.move(1, 0):
+                    self.place_timer = 0
             elif self.key_pressed["left"]:
                 self.t.move(-1, 0)
 
@@ -477,8 +500,9 @@ class GameController(GameObject):
             t.move(0, -1*Tetris.queue_spacing)
         self.enqueueTetromino()
         
-        # Reset drop timer
+        # Reset drop timer and spawn timer
         self.drop_timer = 0
+        self.spawn_timer = 0
 
         # Reset save flag
         self.can_save = True
