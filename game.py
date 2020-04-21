@@ -8,8 +8,9 @@ class Game:
     # Lists of game objects
     objects = list()
     draw_objects = list()
-    
-    step_time = 1.0/60.0
+
+    framerate = 60
+    step_time = 1.0/framerate
     
     # Takes one step in the game
     @staticmethod

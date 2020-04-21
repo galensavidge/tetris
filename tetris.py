@@ -38,6 +38,8 @@ class Tetris:
     queue_y = 3
     queue_spacing = 6
     gui_board = None
+
+    gui_font = "helvetica"
     
     # Graphics
     window_width = gui_grid_x*gui_grid_size
@@ -385,9 +387,6 @@ class GameController(GameObject):
         self.popTetromino()
     
     def update(self):
-        # Update game timer
-        self.timer += 1
-        
         # Get key presses
         self.getKeys()
 
@@ -396,6 +395,10 @@ class GameController(GameObject):
             exit()
         
         if self.state == "playing":
+            # Update game timer
+            self.timer += 1
+            Tetris.gui.setTimer(self.timer//Game.framerate)
+            
             # Saving
             if self.key_pressed["save"] and self.can_save:
                 self.saveTetromino()
@@ -538,18 +541,32 @@ class GUI(GraphicsObject):
         # Hold text
         self.hold_t = g.Text(g.Point(Tetris.gui_grid_size*3.5, Tetris.gui_grid_size*6.5), "Hold")
         self.hold_t.setStyle("bold")
+        self.hold_t.setFace(Tetris.gui_font)
         self.hold_t.setSize(18)
         self.hold_t.setFill(GUI.hold_color)
         self.hold_t.draw(Tetris.win)
+
+        # Timer text
+        self.timer_t = g.Text(g.Point(Tetris.gui_grid_size*3, \
+                                      Tetris.gui_grid_size*(Tetris.gui_grid_y - 3)), "0")
+        self.timer_t.setStyle("bold")
+        self.timer_t.setFace(Tetris.gui_font)
+        self.timer_t.setSize(24)
+        self.timer_t.setFill(GUI.hold_color)
+        self.timer_t.draw(Tetris.win)
         
         # Game over text
         self.game_over_t = g.Text(g.Point(Tetris.window_width/2, Tetris.window_height/2), \
                                   "GAME OVER")
         self.game_over_t.setStyle("bold")
+        self.game_over_t.setFace(Tetris.gui_font)
         self.game_over_t.setSize(36)
         self.game_over_t.setFill(GUI.game_over_color)
         self.game_over_drawn = False
 
+    def setTimer(self, seconds):
+        self.timer_t.setText(str(seconds))
+    
     def setGameOver(self, on):
         if on and self.game_over_drawn == False:
             self.game_over_drawn = True
