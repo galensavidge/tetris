@@ -16,9 +16,9 @@ class Tetris:
     gc = None
 
     # Main board
-    grid_x = 10
-    grid_y = 20
     grid_size = 50 # in px
+    grid_x = 10
+    grid_y = 22
     board_position_x = 200
     board_position_y = 25
     spawn_x = 5
@@ -29,9 +29,9 @@ class Tetris:
     gui_layer = 2
     gui_priority = 0
     gui = None
-    gui_grid_x = 36
-    gui_grid_y = 42
     gui_grid_size = 25
+    gui_grid_x = 36
+    gui_grid_y = grid_y*grid_size//gui_grid_size + 2
     saved_x = 3
     saved_y = 3
     queue_x = 31
@@ -249,6 +249,7 @@ class Tetromino(GameObject):
         # Return False once all blocks have been checked
         return False
 
+    # Returns True if the Tetromino successfully moved by (dx, dy) and False otherwise
     def move(self, dx, dy):
         if self.checkTranslation(dx, dy) == False:
             self.x += dx
@@ -410,19 +411,25 @@ class GameController(GameObject):
 
             # Increase difficulty
             if self.timer%GameController.difficulty_level_time == 0:
-                print("Increasing difficulty...")
-
                 if self.drop_timer_duration > 8:
                     self.drop_timer_duration -= 5
                 elif self.drop_timer_duration > 1:
                     self.drop_timer_duration -= 1
 
-                self.place_timer_duration = self.drop_timer_duration/2 + Game.framerate/4
+                self.place_timer_duration = self.drop_timer_duration/2 + Game.framerate/2
             
             # Saving
             if self.key_pressed["save"] and self.can_save:
                 self.saveTetromino()
-            
+
+            # Rotation
+            if self.key_pressed["cw"]:
+                if self.t.rotate(True): # Rotate clockwise
+                    self.place_timer = 0
+            elif self.key_pressed["ccw"]:
+                if self.t.rotate(False): # Rotate ccw
+                    self.place_timer = 0
+
             # Translation
             if self.key_pressed["up"]:
                 if self.spawn_timer >= self.spawn_timer_duration:
@@ -436,14 +443,6 @@ class GameController(GameObject):
                     self.place_timer = 0
             elif self.key_pressed["left"]:
                 self.t.move(-1, 0)
-
-            # Rotation
-            if self.key_pressed["cw"]:
-                if self.t.rotate(True): # Rotate clockwise
-                    self.place_timer = 0
-            elif self.key_pressed["ccw"]:
-                if self.t.rotate(False): # Rotate ccw
-                    self.place_timer = 0
             
             # Slowly drop controlled tetromino
             self.drop_timer += 1
@@ -532,6 +531,7 @@ class GameController(GameObject):
             if b.y <= Tetris.spawn_y:
                 Tetris.gui.setGameOver(True)
                 self.state = "game_over"
+                return
         
         # Check for filled rows
         filled_rows = 0
