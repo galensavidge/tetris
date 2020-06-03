@@ -311,7 +311,6 @@ class Tetromino(GameObject):
             new_coords = list()
             
             for i in range(len(self.blocks)):
-                b = self.blocks[i]
                 l = self.layout[i]
                 
                 # Calculate positions of blocks using a 2D rotation matrix
@@ -597,7 +596,7 @@ class GUI(GraphicsObject):
             self.game_over_t.draw(Tetris.win)
         elif not on and self.game_over_drawn == True:
             self.game_over_drawn = False
-            self.game_over_t.undraw(Tetris.win)
+            self.game_over_t.undraw()
             
    
 class Background(GraphicsObject):
